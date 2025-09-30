@@ -1,0 +1,316 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>Notion Flip Clock</title>
+	<style>
+		:root{
+			--bg:#0f1115;
+			--fg:#e7eaf0;
+			--muted:#8a90a2;
+			--accent:#7c9cff;
+			--radius:14px;
+			--font: ui-sans-serif, system-ui, -apple-system, "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", Arial, sans-serif;
+			--scale:1;
+		}
+		@media (prefers-color-scheme: light){
+			:root{ --bg:#ffffff; --fg:#1f2430; --muted:#6a6f80; --accent:#3b5bdb; }
+		}
+		html,body{
+			height:100%;
+			margin:0;
+			background:transparent;
+		}
+		.widget{
+			width:100%; height:100%;
+			display:flex; align-items:center; justify-content:center;
+			padding:16px; box-sizing:border-box;
+		}
+		.card{
+			background:var(--bg); color:var(--fg);
+			border-radius:var(--radius);
+			box-shadow: 0 6px 24px rgba(0,0,0,.25), inset 0 0 0 1px rgba(255,255,255,.05);
+			padding: clamp(14px, 3.6vw, 24px);
+			display:flex; flex-direction:column; gap: clamp(8px, 2vw, 12px);
+			transform: scale(var(--scale)); transform-origin:center;
+			min-width: 280px; max-width: 720px;
+		}
+		.card.bordered{
+			box-shadow: inset 0 0 0 1px rgba(124,156,255,.28), 0 6px 24px rgba(0,0,0,.22);
+		}
+
+		.row{
+			display:flex; align-items:stretch; justify-content:center; gap: clamp(8px, 2vw, 12px);
+		}
+		.flip-group{
+			display:flex; align-items:stretch; gap: clamp(8px, 1.2vw, 10px);
+		}
+		/* Flip 單位（兩位數字） */
+		.flip{
+			position:relative;
+			width: clamp(64px, 16vw, 120px);
+			perspective: 1000px;
+		}
+		.flip .panel{
+			position:relative;
+			background: #141821;
+			border-radius: 10px;
+			box-shadow: inset 0 0 0 1px rgba(255,255,255,.06), 0 12px 24px rgba(0,0,0,.35);
+			overflow:hidden;
+			color:#e9edf6;
+		}
+		.flip .panel .value{
+			font-family: var(--font);
+			font-weight: 800;
+			font-variant-numeric: tabular-nums;
+			font-size: clamp(36px, 10vw, 64px);
+			line-height: 1.05;
+			text-align:center;
+			padding: .45em .3em;
+		}
+		/* 分割線樣式（翻頁中線） */
+		.flip .panel::before{
+			content:"";
+			position:absolute; left:0; right:0; top:50%; height:1px;
+			background: rgba(255,255,255,.08);
+			transform: translateY(-.5px);
+		}
+
+		/* 翻頁動畫結構 */
+		.flip .upper, .flip .lower{
+			height: 50%;
+			display:flex; align-items:center; justify-content:center;
+			overflow:hidden;
+		}
+		.flip .upper{ border-bottom: 1px solid rgba(0,0,0,.35); }
+		.flip .lower{ border-top: 1px solid rgba(255,255,255,.06); }
+
+		/* 上半與下半的文字位置 */
+		.flip .upper .value{ padding-bottom: .12em; }
+		.flip .lower .value{ padding-top: .12em; }
+
+		/* 動畫層：上翻、下翻 */
+		.flip .flip-upper, .flip .flip-lower{
+			position:absolute; left:0; right:0;
+			height:50%; overflow:hidden;
+			backface-visibility:hidden;
+		}
+		.flip .flip-upper{
+			top:0; transform-origin: center bottom;
+			border-bottom: 1px solid rgba(0,0,0,.35);
+		}
+		.flip .flip-lower{
+			bottom:0; transform-origin: center top;
+			border-top: 1px solid rgba(255,255,255,.06);
+		}
+		.flip .flip-upper .value,
+		.flip .flip-lower .value{
+			font-family: var(--font);
+			font-weight: 800;
+			font-variant-numeric: tabular-nums;
+			font-size: clamp(36px, 10vw, 64px);
+			line-height: 1.05;
+			text-align:center;
+			padding: .45em .3em;
+			background:#141821; color:#e9edf6;
+		}
+
+		/* 冒號分隔 */
+		.sep{
+			align-self:stretch;
+			display:flex; align-items:center; justify-content:center;
+			font-weight: 900;
+			font-size: clamp(28px, 6vw, 42px);
+			color: var(--accent);
+			letter-spacing: .05em;
+			padding: 0 .1em;
+		}
+
+		/* AM/PM 與日期列 */
+		.meta{
+			display:flex; align-items:center; justify-content:space-between;
+			color: var(--muted);
+			font-family: var(--font);
+			font-size: clamp(13px, 2.4vw, 16px);
+			font-weight: 600;
+			letter-spacing: .04em;
+		}
+		.ampm{ text-transform: uppercase; color: var(--accent); }
+
+	</style>
+</head>
+<body>
+	<div class="widget">
+		<div id="card" class="card">
+			<div class="row">
+				<div class="flip-group">
+					<div class="flip" id="H">
+						<div class="panel">
+							<div class="upper"><div class="value">00</div></div>
+							<div class="lower"><div class="value">00</div></div>
+							<div class="flip-upper" aria-hidden="true" style="display:none"><div class="value">00</div></div>
+							<div class="flip-lower" aria-hidden="true" style="display:none"><div class="value">00</div></div>
+						</div>
+					</div>
+					<div class="sep">:</div>
+					<div class="flip" id="M">
+						<div class="panel">
+							<div class="upper"><div class="value">00</div></div>
+							<div class="lower"><div class="value">00</div></div>
+							<div class="flip-upper" aria-hidden="true" style="display:none"><div class="value">00</div></div>
+							<div class="flip-lower" aria-hidden="true" style="display:none"><div class="value">00</div></div>
+						</div>
+					</div>
+				</div>
+			</div>
+
+			<div class="meta">
+				<div id="date">----年--月--日</div>
+				<div>
+					<span id="weekday">週–</span>
+					<span id="ampm" class="ampm"></span>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<script>
+	(function(){
+		// 參數：?tz=Asia/Taipei&fmt=24&accent=%237c9cff&scale=1&border=1&locale=zh-TW
+		const params = new URLSearchParams(location.search);
+		const tz = params.get('tz') || 'Asia/Taipei';
+		const fmt24 = (params.get('fmt') || '24') === '24';
+		const accent = params.get('accent');
+		const scale = parseFloat(params.get('scale') || '1');
+		const bordered = params.get('border') === '1';
+		const locale = params.get('locale') || 'zh-TW';
+
+		if (accent) document.documentElement.style.setProperty('--accent', accent);
+		if (!isNaN(scale)) document.documentElement.style.setProperty('--scale', scale.toString());
+		if (bordered) document.getElementById('card')?.classList.add('bordered');
+
+		// 工具
+		const pad2 = n => String(n).padStart(2,'0');
+		const $ = sel => document.querySelector(sel);
+
+		// DOM
+		const H = $('#H'), M = $('#M');
+		const dateEl = $('#date'), ampmEl = $('#ampm'), weekdayEl = $('#weekday');
+
+		// 週映射
+		const weekdayMap = {0:'週日',1:'週一',2:'週二',3:'週三',4:'週四',5:'週五',6:'週六'};
+
+		function getTimeParts(){
+			const now = new Date();
+			// 擷取時分與 AM/PM
+			const parts = new Intl.DateTimeFormat('en-GB',{
+				timeZone: tz, hour: '2-digit', minute: '2-digit', hour12: !fmt24
+			}).formatToParts(now);
+			const dict = {};
+			for (const p of parts) dict[p.type] = p.value;
+
+			let hour = dict.hour;
+			let minute = dict.minute;
+			let ampm = fmt24 ? '' : (dict.dayPeriod || '').toUpperCase();
+
+			if (fmt24){
+				hour = new Intl.DateTimeFormat('en-GB',{ timeZone: tz, hour: '2-digit', hour12:false }).format(now);
+			}
+			return { hour: pad2(hour), minute: pad2(minute), ampm, now };
+		}
+
+		function setStaticText(now){
+			// 日期
+			dateEl.textContent = new Intl.DateTimeFormat(locale, {
+				timeZone: tz, year:'numeric', month:'long', day:'numeric'
+			}).format(now);
+			// 星期
+			const weekdayIndex = new Date(now.toLocaleString('en-US',{ timeZone: tz })).getDay();
+			weekdayEl.textContent = weekdayMap[weekdayIndex];
+		}
+
+		// 核心：對某 flip 元件做翻頁動畫
+		function flipTo(el, next){
+			const upperVal = el.querySelector('.upper .value');
+			const lowerVal = el.querySelector('.lower .value');
+			const flipUpper = el.querySelector('.flip-upper');
+			const flipLower = el.querySelector('.flip-lower');
+
+			const current = upperVal.textContent.trim();
+			if (current === next) return; // 不重複動畫
+
+			// 準備動畫值
+			flipUpper.querySelector('.value').textContent = current;
+			flipLower.querySelector('.value').textContent = next;
+
+			flipUpper.style.display = 'block';
+			flipLower.style.display = 'block';
+
+			// 起始：上半翻下 0 -> -90deg
+			flipUpper.animate([
+				{ transform:'rotateX(0deg)', filter:'brightness(1)' },
+				{ transform:'rotateX(-90deg)', filter:'brightness(0.7)' }
+			],{ duration: 350, easing:'cubic-bezier(.25,.46,.45,.94)' }).onfinish = ()=>{
+				upperVal.textContent = next;
+			};
+
+			// 下半翻上 90 -> 0deg（延遲一點讓銜接自然）
+			flipLower.animate([
+				{ transform:'rotateX(90deg)', filter:'brightness(0.7)' },
+				{ transform:'rotateX(0deg)', filter:'brightness(1)' }
+			],{ duration: 350, delay: 150, easing:'cubic-bezier(.25,.46,.45,.94)' }).onfinish = ()=>{
+				lowerVal.textContent = next;
+				flipUpper.style.display = 'none';
+				flipLower.style.display = 'none';
+			};
+		}
+
+		// 初始化
+		let lastHM = '';
+		function tick(){
+			const { hour, minute, ampm, now } = getTimeParts();
+			const hm = hour + minute;
+			if (hm !== lastHM){
+				flipTo(H, hour);
+				flipTo(M, minute);
+				lastHM = hm;
+			}
+			ampmEl.textContent = ampm;
+			// 每分鐘更新一次日期與星期（跨日也會更新）
+			if (minute.endsWith('0') || minute.endsWith('5')) setStaticText(now);
+		}
+
+		// 首次渲染
+		const first = getTimeParts();
+		H.querySelector('.upper .value').textContent = first.hour;
+		H.querySelector('.lower .value').textContent = first.hour;
+		M.querySelector('.upper .value').textContent = first.minute;
+		M.querySelector('.lower .value').textContent = first.minute;
+		ampmEl.textContent = first.ampm;
+		setStaticText(first.now);
+
+		// 將 tick 對齊到下一個整秒，再每秒跑一次，用來偵測分鐘變化並觸發翻頁
+		function startTicker(){
+			const now = new Date();
+			const ms = 1000 - (now.getMilliseconds());
+			setTimeout(()=>{
+				tick();
+				setInterval(tick, 1000);
+			}, ms);
+		}
+		startTicker();
+
+		// 自適應縮放
+		function fit(){
+			const w = window.innerWidth;
+			if (w < 340){
+				document.documentElement.style.setProperty('--scale', (w/340).toFixed(3));
+			}
+		}
+		window.addEventListener('resize', fit, { passive:true });
+
+	})();
+	</script>
+</body>
+</html>
