@@ -7,8 +7,8 @@
   <style>
     :root {
       --bg: transparent;
-      --fg: #111827;          /* slate-900 */
-      --muted: #6b7280;       /* gray-500 */
+      --fg: #111827;
+      --muted: #6b7280;
       --accent: #111827;
       --radius: 16px;
       --shadow: 0 6px 20px rgba(0,0,0,.06);
@@ -19,8 +19,8 @@
     }
     @media (prefers-color-scheme: dark) {
       :root {
-        --fg: #e5e7eb;        /* gray-200 */
-        --muted: #9ca3af;     /* gray-400 */
+        --fg: #e5e7eb;
+        --muted: #9ca3af;
         --accent: #e5e7eb;
       }
     }
@@ -78,18 +78,14 @@
   </div>
 
   <script>
-    // --- Helpers: read query params with defaults ---
     const P = new URLSearchParams(location.search);
-    const locale = P.get('locale') || 'zh-Hant';                 // e.g. en-US, ja-JP
+    const locale = P.get('locale') || 'zh-Hant';
     const timeZone = P.get('tz') || Intl.DateTimeFormat().resolvedOptions().timeZone;
     const twelveHour = P.get('hour12') === 'true' ? true : (P.get('hour12') === 'false' ? false : undefined);
-    const showSeconds = (P.get('seconds') || 'true') !== 'false';
 
-    // Use either high-level dateStyle/timeStyle, or custom tokens via options
-    const dateStyle = P.get('dateStyle') || 'full';              // full | long | medium | short
-    const timeStyle = P.get('timeStyle') || (showSeconds ? 'medium' : 'short');
+    const dateStyle = P.get('dateStyle') || 'full';
+    const timeStyle = P.get('timeStyle') || 'short'; // 僅顯示時:分，不含秒
 
-    // Styling overrides via query params (optional)
     const css = {
       bg: P.get('bg'), fg: P.get('fg'), muted: P.get('muted'), accent: P.get('accent'),
       radius: P.get('radius'), shadow: P.get('shadow'), font: P.get('font'),
@@ -101,12 +97,12 @@
     const timeEl = document.getElementById('time');
     const tzEl = document.getElementById('tz');
 
-    // Intl formatters
     let dateFmt, timeFmt;
     function makeFormatters() {
       dateFmt = new Intl.DateTimeFormat(locale, { dateStyle, timeZone });
       timeFmt = new Intl.DateTimeFormat(locale, {
-        timeStyle,
+        hour: '2-digit',
+        minute: '2-digit',
         hour12: twelveHour,
         timeZone
       });
@@ -119,9 +115,8 @@
         timeEl.textContent = timeFmt.format(now);
         tzEl.textContent = `${timeZone}`;
       } catch (e) {
-        // Fallback if Intl fails
         dateEl.textContent = now.toLocaleDateString();
-        timeEl.textContent = now.toLocaleTimeString();
+        timeEl.textContent = now.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'});
         tzEl.textContent = timeZone;
       }
     }
@@ -129,11 +124,8 @@
     makeFormatters();
     tick();
 
-    // Update every second (or 5s if seconds are hidden)
-    const intervalMs = showSeconds ? 1000 : 5000;
-    setInterval(tick, intervalMs);
+    setInterval(tick, 1000); // 每秒更新，但不顯示秒數
 
-    // Resize observer: try to keep content vertically centered in various iframe heights
     new ResizeObserver(() => tick()).observe(document.body);
   </script>
 </body>
